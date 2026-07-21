@@ -1,0 +1,9 @@
+name: Invalid Workflow
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reference undefined step
+        run: echo "${{ steps.nonexistent_step.outputs.result }}"
