@@ -1,0 +1,54 @@
+name: Test custom actionlint flags
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git origin reachable inside the Docker container
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a workflow file for actionlint to check with custom flags
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.github/workflows"
+          sed 's/^          //' > "$GITHUB_WORKSPACE/.github/workflows/flagtest.yml" <<'WFEOF'
+          name: Flag test workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+                - name: Run script
+                  run: echo "hello world"
+          WFEOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          level: info
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: "-ignore 'SC2.*'"
+
+      - name: Assert action completed successfully with custom flags
+        run: |
+          echo "Action completed with custom actionlint flags"
+          echo "PASS"
