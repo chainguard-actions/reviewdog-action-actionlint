@@ -82,7 +82,7 @@ runs:
         INPUT_REVIEWDOG_FLAGS: ${{ inputs.reviewdog_flags }}
         INPUT_ACTIONLINT_FLAGS: ${{ inputs.actionlint_flags }}
       shell: bash
-      run: $ACTION_PATH/../entrypoint.sh
+      run: "$ACTION_PATH/../entrypoint.sh"
 
 branding:
   color: red

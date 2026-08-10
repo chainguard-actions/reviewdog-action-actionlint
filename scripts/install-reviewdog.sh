@@ -15,6 +15,6 @@ else
 fi
 
 INSTALL_SCRIPT=$(mktemp)
-curl -sSL -o "$INSTALL_SCRIPT" https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh
-sh "$INSTALL_SCRIPT" -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"
+curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh -o "$INSTALL_SCRIPT"
+sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"
 rm -f "$INSTALL_SCRIPT"
