@@ -1,0 +1,13 @@
+name: Invalid Workflow
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bad step
+        run: echo ${{ steps.nonexistent.outputs.result }}
+        env:
+          FOO: ${{ runner.os }}
+      - name: Another bad step
+        if: github.event_name == 'push'
+        run: echo "bad if expression - missing ${{ }}"
