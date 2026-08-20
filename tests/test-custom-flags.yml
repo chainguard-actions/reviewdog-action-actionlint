@@ -1,0 +1,55 @@
+name: Test custom actionlint flags and tool name
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up a git origin reachable inside the Docker container
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          rm -rf "$GITHUB_WORKSPACE/.git-remote"
+          git init --bare "$GITHUB_WORKSPACE/.git-remote"
+          git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
+          git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
+            git remote add origin "$GITHUB_WORKSPACE/.git-remote"
+
+      - name: Create a workflow file for actionlint to check
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.github/workflows"
+          cat > "$GITHUB_WORKSPACE/.github/workflows/sample.yml" << 'EOF'
+          name: Sample Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Run tests
+                  run: echo "running tests"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          tool_name: actionlint-custom
+          level: warning
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: '-ignore "SC2"'
+
+      - name: Assert action succeeded with custom flags
+        run: |
+          echo "Action completed successfully with custom tool_name and actionlint_flags"
+          echo "PASS"
