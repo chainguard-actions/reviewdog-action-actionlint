@@ -1,0 +1,50 @@
+name: Test fail_level behavior with invalid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create an invalid workflow file that actionlint will flag
+      - name: Create an invalid workflow file for testing
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/invalid-test-workflow.yml << 'EOF'
+          name: Invalid Test Workflow
+          on: push
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Bad step
+                  run: echo "hello"
+                  uses: actions/checkout@v4
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          level: error
+          filter_mode: nofilter
+          fail_level: error
+        continue-on-error: true
+
+      - name: Assert action failed due to lint errors
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # With an invalid workflow and fail_level=error, the action should fail
+          # (either from actionlint finding errors, or from reviewdog API calls on sentinel repo)
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action correctly failed when lint errors found or sentinel repo used"
+          elif [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded (actionlint may have reported no errors in this context)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

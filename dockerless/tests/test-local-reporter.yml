@@ -1,0 +1,48 @@
+name: Test actionlint with local reporter
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Create a valid workflow file for actionlint to check
+      - name: Create a valid workflow file for testing
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/valid-test-workflow.yml << 'EOF'
+          name: Valid Test Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - name: Run tests
+                  run: echo "hello"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          level: error
+          filter_mode: nofilter
+          fail_level: none
+
+      - name: Assert action completed successfully
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: actionlint ran with local reporter successfully"
+          else
+            echo "FAIL: expected success but got '$OUTCOME'"
+            exit 1
+          fi
