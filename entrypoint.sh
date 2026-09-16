@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -eu
 
@@ -30,17 +30,19 @@ echo "::endgroup::"
 
 export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 
-# Safely tokenize INPUT_ACTIONLINT_FLAGS into positional parameters to prevent shell injection
-set --
+actionlint_flags=()
 if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
-  while IFS= read -r _flag; do
-    set -- "$@" "$_flag"
-  done <<ACTIONLINT_FLAGS_EOF
-$(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs -n1 printf '%s\n')
-ACTIONLINT_FLAGS_EOF
+  while IFS= read -r -d '' t; do actionlint_flags+=("$t"); done \
+    < <(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs printf '%s\0')
 fi
 
-actionlint -oneline "$@" | while read -r r; do
+reviewdog_flags=()
+if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
+  while IFS= read -r -d '' t; do reviewdog_flags+=("$t"); done \
+    < <(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs printf '%s\0')
+fi
+
+actionlint -oneline "${actionlint_flags[@]}" | while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
   severity=e
 
@@ -54,24 +56,15 @@ actionlint -oneline "$@" | while read -r r; do
 
   echo "${severity}:${r}"
 done \
-    | { # Safely tokenize INPUT_REVIEWDOG_FLAGS into positional parameters
-        set --
-        if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
-          while IFS= read -r _flag; do
-            set -- "$@" "$_flag"
-          done <<REVIEWDOG_FLAGS_EOF
-$(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs -n1 printf '%s\n')
-REVIEWDOG_FLAGS_EOF
-        fi
-        reviewdog \
-            -efm="%t:%f:%l:%c: %m" \
-            -name="${INPUT_TOOL_NAME}" \
-            -reporter="${INPUT_REPORTER}" \
-            -filter-mode="${INPUT_FILTER_MODE}" \
-            -fail-level="${INPUT_FAIL_LEVEL}" \
-            -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
-            -level="${INPUT_LEVEL}" \
-            "$@"; }
+    | reviewdog \
+        -efm="%t:%f:%l:%c: %m" \
+        -name="${INPUT_TOOL_NAME}" \
+        -reporter="${INPUT_REPORTER}" \
+        -filter-mode="${INPUT_FILTER_MODE}" \
+        -fail-level="${INPUT_FAIL_LEVEL}" \
+        -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
+        -level="${INPUT_LEVEL}" \
+        "${reviewdog_flags[@]}"
 exit_code=$?
 
 exit $exit_code
