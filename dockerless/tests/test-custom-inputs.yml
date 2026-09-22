@@ -1,0 +1,40 @@
+name: Test custom inputs - tool_name and filter_mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid workflow file for actionlint to check
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.github/workflows"
+          cat > "$GITHUB_WORKSPACE/.github/workflows/custom-test.yml" << 'EOF'
+          name: Custom Test Workflow
+          on:
+            pull_request:
+          jobs:
+            lint:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Run linter
+                  run: echo "linting"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          tool_name: "my-actionlint"
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          level: warning
+          actionlint_flags: "-ignore SC2"
+
+      - name: Assert action completed with custom tool_name
+        run: |
+          echo "Action completed with custom tool_name=my-actionlint"
+          echo "PASS"

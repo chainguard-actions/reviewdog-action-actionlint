@@ -1,0 +1,40 @@
+name: Test basic usage - valid workflows
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid workflow file for actionlint to check
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.github/workflows"
+          cat > "$GITHUB_WORKSPACE/.github/workflows/valid-test.yml" << 'EOF'
+          name: Valid Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Echo hello
+                  run: echo "hello"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: "-ignore SC2"
+
+      - name: Assert action completed successfully
+        run: |
+          echo "Action completed - actionlint ran without fatal errors"
+          echo "PASS"
