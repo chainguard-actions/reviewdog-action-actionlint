@@ -16,11 +16,11 @@ Action **reviewdog--action-actionlint--dockerless/v1.76.3** was hardened automat
 
 ### script-injection (severity: high)
 
-Sub-rule (b) violation: The 'Run' step executes `run: $ACTION_PATH/../entrypoint.sh` where `$ACTION_PATH` is an unquoted shell variable holding the value of `${{ github.action_path }}` (set in the env: block). An unquoted variable expansion allows the shell to perform word-splitting and glob expansion on the value before executing it, which can lead to command injection if the path contains shell metacharacters. The fix is to quote the variable: `run: "$ACTION_PATH/../entrypoint.sh"`
+Sub-rule (b): In the 'Run' step, the env var ACTION_PATH holds a workflow-controllable value (${{ github.action_path }}) and is expanded unquoted in the run command: `run: $ACTION_PATH/../entrypoint.sh`. An unquoted shell variable expansion allows shell metacharacters in the value to be interpreted by the shell. It should be quoted: `run: "$ACTION_PATH/../entrypoint.sh"`.
 
 Locations:
 
-- `action.yml:86`
+- `action.yml:76`
 
 ## Iteration Notes
 
@@ -30,5 +30,5 @@ Locations:
 
 **Notes:**
 
-Fixed the unquoted variable expansion in action.yml line 86. Changed `run: $ACTION_PATH/../entrypoint.sh` to `run: "$ACTION_PATH/../entrypoint.sh"` to prevent word-splitting and glob expansion on the ACTION_PATH variable, which holds the value of `${{ github.action_path }}`.
+Fixed the unquoted variable expansion in action.yml at line 76. Changed `run: $ACTION_PATH/../entrypoint.sh` to `run: "$ACTION_PATH/../entrypoint.sh"` to prevent shell metacharacters in the ACTION_PATH value (which holds ${{ github.action_path }}) from being interpreted by the shell.
 

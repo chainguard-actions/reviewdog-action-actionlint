@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -eu
 
@@ -33,17 +33,11 @@ export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 actionlint_out="$(mktemp)"
 trap 'rm -f "${actionlint_out}"' EXIT
 
-# Tokenize INPUT_ACTIONLINT_FLAGS following shell quoting rules so that
-# flag values containing spaces (e.g. -ignore="foo bar") survive intact,
-# without using eval (which would allow shell command injection).
-actionlint_flags=()
-if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do actionlint_flags+=("$t"); done \
-    < <(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs printf '%s\0')
-fi
-
 set +e
-actionlint -oneline "${actionlint_flags[@]}" > "${actionlint_out}"
+# Re-split INPUT_ACTIONLINT_FLAGS following shell quoting rules so that
+# flag values containing spaces (e.g. -ignore="foo bar") survive intact.
+eval "set -- ${INPUT_ACTIONLINT_FLAGS}"
+actionlint -oneline "$@" > "${actionlint_out}"
 actionlint_exit=$?
 set -e
 
@@ -55,14 +49,9 @@ if [ "${actionlint_exit}" -ge 2 ]; then
   exit "${actionlint_exit}"
 fi
 
-# Tokenize INPUT_REVIEWDOG_FLAGS following shell quoting rules so that flag
-# values containing spaces (e.g. -diff="git diff main") survive intact,
-# without using eval (which would allow shell command injection).
-reviewdog_flags=()
-if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do reviewdog_flags+=("$t"); done \
-    < <(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs printf '%s\0')
-fi
+# Re-split INPUT_REVIEWDOG_FLAGS following shell quoting rules so that flag
+# values containing spaces (e.g. -diff="git diff main") survive intact.
+eval "set -- ${INPUT_REVIEWDOG_FLAGS}"
 
 while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
@@ -70,7 +59,7 @@ while read -r r; do
 
   # Parse the severity if the output is from shellcheck
   if echo "${r}" | grep "${shellcheck_output}"; then
-    s="$(echo "${r}" | sed -e "s/^.*${shellcheck_output}[^:]*:\\([^:]\\).*$/\\1/g")"
+    s="$(echo "${r}" | sed -e "s/^.*${shellcheck_output}[^:]*:\([^:]\).*$/\1/g")"
     if [ "${s}" = 'e' ] || [ "${s}" = 'w' ] || [ "${s}" = 'i' ] || [ "${s}" = 'n' ]; then
       severity="${s}"
     fi
@@ -86,7 +75,7 @@ done < "${actionlint_out}" \
         -fail-level="${INPUT_FAIL_LEVEL}" \
         -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
         -level="${INPUT_LEVEL}" \
-        "${reviewdog_flags[@]}"
+        "$@"
 exit_code=$?
 
 exit "${exit_code}"
