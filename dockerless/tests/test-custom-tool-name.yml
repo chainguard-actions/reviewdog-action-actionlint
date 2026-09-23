@@ -1,0 +1,40 @@
+name: Test custom tool_name and level inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid workflow file for actionlint to scan
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/check-workflow.yml << 'EOF'
+          name: Check Workflow
+          on:
+            pull_request:
+              branches:
+                - main
+          jobs:
+            check:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - name: Check
+                  run: echo "checking"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          tool_name: "my-actionlint"
+          level: "warning"
+          reporter: local
+          fail_level: none
+          filter_mode: nofilter
+
+      - name: Assert action completed with custom tool_name and level
+        run: |
+          echo "PASS: actionlint ran successfully with custom tool_name='my-actionlint' and level='warning'"

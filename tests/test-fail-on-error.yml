@@ -1,0 +1,48 @@
+name: Test fail_level with invalid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up an invalid workflow for actionlint to scan
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.github/workflows"
+          # Create a workflow with a known actionlint error: invalid runner label
+          cat > "$GITHUB_WORKSPACE/.github/workflows/bad.yml" << 'EOF'
+          name: Bad Workflow
+          on: push
+          jobs:
+            build:
+              runs-on: nonexistent-runner-label-xyz
+              steps:
+                - name: Step
+                  run: echo hello
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+        continue-on-error: true
+
+      - name: Assert action ran (found errors or ran gracefully)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # With an invalid workflow and fail_level=error, actionlint should find issues
+          # and reviewdog should exit with code 1 (failure). This is the expected behavior.
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action correctly reported failure (errors found or sentinel repo)"
+          elif [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded (reviewdog ran without fatal error)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

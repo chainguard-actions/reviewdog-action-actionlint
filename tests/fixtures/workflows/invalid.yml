@@ -1,0 +1,12 @@
+name: Invalid Workflow
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bad expression
+        run: echo "${{ github.nonexistent_property_that_does_not_exist }}"
+      - name: Use undefined secret
+        run: echo "${{ secrets.UNDEFINED_SECRET_XYZ }}"
+        env:
+          TOKEN: ${{ secrets.UNDEFINED_SECRET_XYZ }}
