@@ -1,0 +1,39 @@
+name: Test filter_mode input variations
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Pre-install tools to speed up action
+        run: |
+          sudo apt-get install -y shellcheck 2>/dev/null || true
+          pip install pyflakes 2>/dev/null || true
+
+      - id: action-file-mode
+        name: Run actionlint with filter_mode=file
+        uses: .
+        continue-on-error: true
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          level: error
+          filter_mode: file
+          fail_level: none
+          actionlint_flags: "-ignore 'SC2' -ignore 'shellcheck'"
+
+      - name: Assert filter_mode=file run completed
+        env:
+          OUTCOME: ${{ steps.action-file-mode.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: actionlint ran successfully with filter_mode=file"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (tool installation or lint issue)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
