@@ -19,6 +19,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v1.73.4 | [`v1.73.4`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.73.4) | — |
 | v1.74.0 | [`v1.74.0`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.74.0) | [`8b682e1`](https://github.com/reviewdog/action-actionlint/commit/8b682e1e7e512151d73a6b9449cbff173846226e) |
 | v1.75.0 | [`v1.75.0`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.75.0) | [`ab71380`](https://github.com/reviewdog/action-actionlint/commit/ab7138020abfe6cd20b742c82e5b7a9749fb5884) |
+| v1.75.2 | [`v1.75.2`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.75.2) | [`0f79693`](https://github.com/reviewdog/action-actionlint/commit/0f79693de552e66b9934daa63513584415a955e4) |
 | v1.75.3 | [`v1.75.3`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.75.3) | [`669cae8`](https://github.com/reviewdog/action-actionlint/commit/669cae8ed34fad00fe4f09dd85f34722204b0b9c) |
 | v1.76.0 | [`v1.76.0`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.76.0) | [`320fcdd`](https://github.com/reviewdog/action-actionlint/commit/320fcdd9c860767cf17fab3b20e22e739d5d02b8) |
 | v1.76.1 | [`v1.76.1`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.76.1) | [`5be522b`](https://github.com/reviewdog/action-actionlint/commit/5be522b94290e249dba9f5daded2f7157733e3d2) |
