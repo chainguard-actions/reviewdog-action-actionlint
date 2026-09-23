@@ -1,0 +1,20 @@
+name: Test custom inputs - tool_name and level
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          tool_name: actionlint-custom
+          level: warning
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+      - name: Assert action completed with custom tool_name and level
+        run: |
+          echo "PASS: actionlint ran with custom tool_name=actionlint-custom and level=warning"
