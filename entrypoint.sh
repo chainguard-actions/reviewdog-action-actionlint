@@ -30,6 +30,7 @@ echo "::endgroup::"
 
 export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 
+# Tokenize list-style flag inputs into arrays (quote-aware, safe against injection)
 actionlint_flags=()
 if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
   while IFS= read -r -d '' t; do actionlint_flags+=("$t"); done \
