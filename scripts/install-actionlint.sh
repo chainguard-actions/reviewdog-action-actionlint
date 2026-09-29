@@ -15,4 +15,7 @@ else
 fi
 
 cd "$INSTALL_DIR"
-curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"
+INSTALL_SCRIPT=$(mktemp)
+curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash -o "$INSTALL_SCRIPT"
+bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"
+rm -f "$INSTALL_SCRIPT"

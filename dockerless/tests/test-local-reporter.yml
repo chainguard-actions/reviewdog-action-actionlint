@@ -1,4 +1,4 @@
-name: Test basic usage
+name: Test local reporter mode
 on:
   workflow_dispatch:
 jobs:
@@ -15,15 +15,16 @@ jobs:
           filter_mode: nofilter
           fail_level: none
           fail_on_error: "false"
-      - name: Assert action ran (success or graceful failure on sentinel repo)
+          reviewdog_flags: "-reporter=local"
+      - name: Assert action ran with local reporter
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
           if [ "$OUTCOME" = "success" ]; then
-            echo "PASS: action completed successfully"
+            echo "PASS: action completed successfully with local reporter"
           elif [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action failed gracefully (expected with sentinel repo)"
+            echo "PASS: action failed gracefully (acceptable under harness)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1

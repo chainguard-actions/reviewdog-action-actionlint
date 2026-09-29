@@ -30,14 +30,47 @@ echo "::endgroup::"
 
 export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 
-# shellcheck disable=SC2086
-actionlint -oneline ${INPUT_ACTIONLINT_FLAGS} | while read -r r; do
+# Tokenize INPUT_ACTIONLINT_FLAGS into positional parameters (POSIX-safe, quote-aware)
+run_actionlint() {
+  set --
+  if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
+    while IFS= read -r t; do
+      set -- "$@" "$t"
+    done <<EOF
+$(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs -n1 printf '%s\n')
+EOF
+  fi
+  actionlint -oneline "$@"
+}
+
+# Tokenize INPUT_REVIEWDOG_FLAGS into positional parameters (POSIX-safe, quote-aware)
+run_reviewdog() {
+  set --
+  if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
+    while IFS= read -r t; do
+      set -- "$@" "$t"
+    done <<EOF
+$(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs -n1 printf '%s\n')
+EOF
+  fi
+  reviewdog \
+      -efm="%t:%f:%l:%c: %m" \
+      -name="${INPUT_TOOL_NAME}" \
+      -reporter="${INPUT_REPORTER}" \
+      -filter-mode="${INPUT_FILTER_MODE}" \
+      -fail-level="${INPUT_FAIL_LEVEL}" \
+      -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
+      -level="${INPUT_LEVEL}" \
+      "$@"
+}
+
+run_actionlint | while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
   severity=e
 
   # Parse the severity if the output is from shellcheck
   if echo "${r}" | grep "${shellcheck_output}"; then
-    s="$(echo "${r}" | sed -e "s/^.*${shellcheck_output}[^:]*:\([^:]\).*$/\1/g")"
+    s="$(echo "${r}" | sed -e "s/^.*${shellcheck_output}[^:]*:\\([^:]\\).*$/\\1/g")"
     if [ "${s}" = 'e' ] || [ "${s}" = 'w' ] || [ "${s}" = 'i' ] || [ "${s}" = 'n' ]; then
       severity="${s}"
     fi
@@ -45,15 +78,7 @@ actionlint -oneline ${INPUT_ACTIONLINT_FLAGS} | while read -r r; do
 
   echo "${severity}:${r}"
 done \
-    | reviewdog \
-        -efm="%t:%f:%l:%c: %m" \
-        -name="${INPUT_TOOL_NAME}" \
-        -reporter="${INPUT_REPORTER}" \
-        -filter-mode="${INPUT_FILTER_MODE}" \
-        -fail-level="${INPUT_FAIL_LEVEL}" \
-        -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
-        -level="${INPUT_LEVEL}" \
-        ${INPUT_REVIEWDOG_FLAGS}
+    | run_reviewdog
 exit_code=$?
 
 exit $exit_code

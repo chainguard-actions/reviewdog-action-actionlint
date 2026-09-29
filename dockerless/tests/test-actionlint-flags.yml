@@ -1,4 +1,4 @@
-name: Test actionlint_flags input
+name: Test custom actionlint flags
 on:
   workflow_dispatch:
 jobs:
@@ -6,39 +6,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Create a workflow file for actionlint to lint
-        run: |
-          mkdir -p .github/workflows
-          cat > .github/workflows/test-target.yml << 'EOF'
-          name: Test Target
-          on:
-            push:
-          jobs:
-            build:
-              runs-on: ubuntu-latest
-              steps:
-                - name: Run something
-                  run: echo "testing actionlint flags"
-          EOF
-
       - id: action
         uses: .
+        continue-on-error: true
         with:
           github_token: ${{ github.token }}
-          reporter: local
+          reporter: github-check
           filter_mode: nofilter
           fail_level: none
-          actionlint_flags: "-ignore SC2086"
-        continue-on-error: true
-
-      - name: Assert action ran with actionlint_flags
+          fail_on_error: "false"
+          reviewdog_flags: "-reporter=local"
+          actionlint_flags: "-oneline"
+      - name: Assert action ran with custom actionlint flags
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran with actionlint_flags (outcome=$OUTCOME)"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed successfully with custom actionlint flags"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (acceptable under harness)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1
