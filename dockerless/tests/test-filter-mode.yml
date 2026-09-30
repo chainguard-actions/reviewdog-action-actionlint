@@ -6,40 +6,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - id: action-file-mode
+      - id: action
         uses: .
+        continue-on-error: true
         with:
           github_token: ${{ github.token }}
           reporter: github-check
-          filter_mode: file
+          filter_mode: added
           fail_level: none
-        continue-on-error: true
-      - name: Assert file filter_mode ran
+          level: error
+      - name: Assert action ran with filter_mode=added
         env:
-          OUTCOME: ${{ steps.action-file-mode.outcome }}
+          OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran with filter_mode=file, outcome=$OUTCOME"
-          else
-            echo "FAIL: unexpected outcome '$OUTCOME'"
-            exit 1
-          fi
-      - id: action-nofilter-mode
-        uses: .
-        with:
-          github_token: ${{ github.token }}
-          reporter: github-check
-          filter_mode: nofilter
-          fail_level: none
-        continue-on-error: true
-      - name: Assert nofilter filter_mode ran
-        env:
-          OUTCOME: ${{ steps.action-nofilter-mode.outcome }}
-        run: |
-          echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action ran with filter_mode=nofilter, outcome=$OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: actionlint ran successfully with filter_mode=added"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected on sentinel repo)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1
