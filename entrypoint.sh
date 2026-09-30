@@ -30,21 +30,23 @@ echo "::endgroup::"
 
 export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 
-# Tokenize INPUT_ACTIONLINT_FLAGS into an array (flag list input)
-actionlint_flags=()
+# Tokenize INPUT_ACTIONLINT_FLAGS into an array (quote-aware, injection-safe)
+actionlint_args=()
 if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do actionlint_flags+=("$t"); done \
+  while IFS= read -r -d '' t; do actionlint_args+=("$t"); done \
     < <(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs printf '%s\0')
 fi
 
-# Tokenize INPUT_REVIEWDOG_FLAGS into an array (flag list input)
-reviewdog_flags=()
+# Tokenize INPUT_REVIEWDOG_FLAGS into an array (quote-aware, injection-safe).
+# reviewdog reads from stdin (the pipe), so we must not pipe into xargs here;
+# instead we build the array separately and expand it as arguments only.
+reviewdog_args=()
 if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do reviewdog_flags+=("$t"); done \
+  while IFS= read -r -d '' t; do reviewdog_args+=("$t"); done \
     < <(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs printf '%s\0')
 fi
 
-actionlint -oneline "${actionlint_flags[@]}" | while read -r r; do
+actionlint -oneline "${actionlint_args[@]}" | while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
   severity=e
 
@@ -66,7 +68,7 @@ done \
         -fail-level="${INPUT_FAIL_LEVEL}" \
         -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
         -level="${INPUT_LEVEL}" \
-        "${reviewdog_flags[@]}"
+        "${reviewdog_args[@]}"
 exit_code=$?
 
 exit $exit_code

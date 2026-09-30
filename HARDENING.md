@@ -10,13 +10,13 @@
 
 **Harden Agent Version:** `2`
 
-Action **reviewdog--action-actionlint/v1.74.0** was hardened automatically. 4 finding(s) were identified and resolved across 2 iteration(s).
+Action **reviewdog--action-actionlint/v1.74.0** was hardened automatically. 2 finding(s) were identified and resolved across 2 iteration(s).
 
 ## Findings Fixed
 
 ### unsafe-shell (severity: high)
 
-scripts/install-actionlint.sh pipes remote content directly to bash via `curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/.../download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. This executes arbitrary remote code without first downloading and verifying the script.
+scripts/install-actionlint.sh pipes remote content fetched via curl directly to bash without first saving to a file: `curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. This allows a compromised or man-in-the-middle remote server to execute arbitrary code on the runner.
 
 Locations:
 
@@ -24,43 +24,25 @@ Locations:
 
 ### unsafe-shell (severity: high)
 
-scripts/install-reviewdog.sh pipes remote content directly to sh via `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/.../install.sh | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. This executes arbitrary remote code without first downloading and verifying the script.
+scripts/install-reviewdog.sh pipes remote content fetched via curl directly to sh without first saving to a file: `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. This allows a compromised or man-in-the-middle remote server to execute arbitrary code on the runner.
 
 Locations:
 
 - `scripts/install-reviewdog.sh:17`
 
-### script-injection (severity: high)
-
-Rule (b) violation: entrypoint.sh expands `${INPUT_ACTIONLINT_FLAGS}` unquoted in the shell command `actionlint -oneline ${INPUT_ACTIONLINT_FLAGS}`. This variable is sourced from `inputs.actionlint_flags` (set via env: in dockerless/action.yml) and is workflow-controllable. An attacker-supplied value containing shell metacharacters (`;`, `|`, `&`, `$(...)`, etc.) would be interpreted by the shell, enabling command injection.
-
-Locations:
-
-- `entrypoint.sh:33`
-
-### script-injection (severity: high)
-
-Rule (b) violation: entrypoint.sh expands `${INPUT_REVIEWDOG_FLAGS}` unquoted at the end of the reviewdog invocation (`${INPUT_REVIEWDOG_FLAGS}` with no surrounding quotes). This variable is sourced from `inputs.reviewdog_flags` (set via env: in dockerless/action.yml) and is workflow-controllable. An attacker-supplied value containing shell metacharacters would be interpreted by the shell, enabling command injection.
-
-Locations:
-
-- `entrypoint.sh:50`
-
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** unsafe-shell, script-injection
+**Fixes applied:** unsafe-shell
 
 **Notes:**
 
-Fixed 4 findings across 3 files:
+Fixed both unsafe-shell findings by replacing curl-pipe-to-shell patterns with download-then-execute patterns:
 
-1. scripts/install-actionlint.sh (unsafe-shell): Replaced `curl ... | bash -s -- "$ACTIONLINT_VERSION"` with downloading the script to a temp file via `curl ... -o "$INSTALL_SCRIPT"`, then executing `bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"`. Dropped the `--` (it was the shell's option terminator in the pipe form, not the script's argument).
+1. scripts/install-actionlint.sh: Changed `curl ... | bash -s -- "$ACTIONLINT_VERSION"` to download the script to a mktemp file, then run `bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"`. Dropped '--' (was the shell's option terminator for -s, not a script argument).
 
-2. scripts/install-reviewdog.sh (unsafe-shell): Replaced `curl ... | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"` with downloading to a temp file then executing `sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. Dropped the `--` for the same reason.
-
-3. entrypoint.sh (script-injection x2): Changed shebang from `#!/bin/sh` to `#!/bin/bash` (bash is installed in the Docker image via `apk add bash`). Tokenized `INPUT_ACTIONLINT_FLAGS` and `INPUT_REVIEWDOG_FLAGS` (both are flag-list inputs) using xargs into bash arrays with the guarded xargs/read-loop pattern, then expanded them as `"${actionlint_flags[@]}"` and `"${reviewdog_flags[@]}"` respectively. This prevents shell metacharacters in these inputs from being interpreted as shell commands.
+2. scripts/install-reviewdog.sh: Changed `curl ... | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"` to download the script to a mktemp file, then run `sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. Dropped '--' (same reason). Both temp files are cleaned up with `rm -f` after execution.
 
 ### Iteration 2
 
@@ -68,5 +50,13 @@ Fixed 4 findings across 3 files:
 
 **Notes:**
 
-Fixed script injection in hardened/action/dockerless/action.yml at line 75. Changed `run: $ACTION_PATH/../entrypoint.sh` to `run: "$ACTION_PATH/../entrypoint.sh"` to properly quote the shell variable, preventing shell metacharacters in the ACTION_PATH value from being interpreted as shell commands.
+Fixed all three script-injection findings:
+
+1. entrypoint.sh line 32 (INPUT_ACTIONLINT_FLAGS): Replaced unquoted `${INPUT_ACTIONLINT_FLAGS}` with a bash array tokenized via xargs (quote-aware, NUL-delimited). Guarded with `[ -n ... ]` to avoid empty-arg issues. Expanded as `"${actionlint_args[@]}"`.
+
+2. entrypoint.sh line 50 (INPUT_REVIEWDOG_FLAGS): Replaced unquoted `${INPUT_REVIEWDOG_FLAGS}` with a bash array tokenized via xargs. Built before the pipe so reviewdog's stdin remains available from the pipe chain. Expanded as `"${reviewdog_args[@]}"`.
+
+3. dockerless/action.yml line 82 ($ACTION_PATH): Quoted the run command as `"$ACTION_PATH/../entrypoint.sh"` to prevent word splitting.
+
+Changed shebang from `#!/bin/sh` to `#!/bin/bash` to enable bash arrays and process substitution required for the safe tokenization pattern. Removed the `# shellcheck disable=SC2086` comment that acknowledged the previous unsafe expansion.
 
