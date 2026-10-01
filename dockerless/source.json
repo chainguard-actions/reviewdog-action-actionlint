@@ -2,6 +2,7 @@
   "owner": "reviewdog",
   "repo": "action-actionlint",
   "version": "v1.78.0",
+  "path": "dockerless",
   "commit_sha": "1129829fb3230509a1c9aa4e93cec2b234746a68",
   "url": "https://github.com/reviewdog/action-actionlint",
   "policy_sha": "d636be7e43ef829af6e853da6b3c7566db9f72fe",
