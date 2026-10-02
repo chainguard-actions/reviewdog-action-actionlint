@@ -1,0 +1,35 @@
+name: Test fail_level behavior
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create an invalid workflow file for actionlint to detect errors
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/workflows"
+          cat > "$GITHUB_WORKSPACE/tests/fixtures/workflows/invalid.yml" <<'EOF'
+          name: Invalid Workflow
+          on: push
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Bad expression
+                  run: echo ${{ toJson(github.event.nonexistent_field) }}
+                  env:
+                    UNDEFINED_VAR: ${{ steps.nonexistent.outputs.result }}
+          EOF
+      - name: Test with fail_level none - should succeed even with lint errors
+        id: action-none
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: "$GITHUB_WORKSPACE/tests/fixtures/workflows/invalid.yml"
+      - name: Assert action succeeded with fail_level none
+        run: |
+          echo "PASS: action succeeded with fail_level=none as expected"

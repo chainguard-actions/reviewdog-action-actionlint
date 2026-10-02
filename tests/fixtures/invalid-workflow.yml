@@ -1,0 +1,9 @@
+name: Invalid workflow for testing
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use undefined expression
+        run: echo ${{ steps.nonexistent.outputs.result }}

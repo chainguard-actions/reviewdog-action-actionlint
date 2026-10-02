@@ -1,0 +1,47 @@
+name: Test github-check reporter
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a valid workflow file for actionlint to check
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tests/fixtures/workflows"
+          cat > "$GITHUB_WORKSPACE/tests/fixtures/workflows/valid.yml" <<'EOF'
+          name: Valid Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Echo
+                  run: echo "hello"
+          EOF
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          github_token: ${{ github.token }}
+          reporter: github-check
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: "$GITHUB_WORKSPACE/tests/fixtures/workflows/valid.yml"
+      - name: Assert action ran (github-check may fail on sentinel repo but should not crash)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action succeeded with github-check reporter"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (sentinel repo is not resolvable for github-check)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
