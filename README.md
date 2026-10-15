@@ -31,6 +31,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v1.79.1 | [`v1.79.1`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.79.1) | [`1758727`](https://github.com/reviewdog/action-actionlint/commit/1758727be30241166609dad4c97588b6ad411f32) |
 | v1.80.0 | [`v1.80.0`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.80.0) | [`a8ac3ee`](https://github.com/reviewdog/action-actionlint/commit/a8ac3eea598697a830f7d8e701fc9fcbfde88974) |
 | v1.80.1 | [`v1.80.1`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.80.1) | [`6a9ff88`](https://github.com/reviewdog/action-actionlint/commit/6a9ff88b9bb9c12ff3d7340e267f0f59effaa7cd) |
+| v1.80.2 | [`v1.80.2`](https://github.com/chainguard-actions/reviewdog-action-actionlint/tree/v1.80.2) | [`3cbf14e`](https://github.com/reviewdog/action-actionlint/commit/3cbf14efd750961dba35fccbf00f9e14028cb1f5) |
 
 ## Privacy
 
