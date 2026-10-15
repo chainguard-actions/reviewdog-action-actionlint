@@ -1,0 +1,10 @@
+name: Invalid Workflow
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bad expression
+        run: echo ${{ toJSON(github.event.nonexistent) }}
+        env:
+          UNDEFINED_VAR: ${{ steps.nonexistent.outputs.result }}
