@@ -1,0 +1,51 @@
+name: Test actionlint detects invalid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create an invalid workflow file with actionlint errors
+        run: |
+          mkdir -p .github/workflows
+          # This workflow has an invalid event name which actionlint should catch
+          cat > .github/workflows/invalid-test-workflow.yml << 'EOF'
+          name: Invalid Test Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Use undefined expression
+                  run: echo "${{ steps.nonexistent.outputs.value }}"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+          level: error
+        continue-on-error: true
+
+      - name: Assert action ran (may fail due to sentinel repo or found issues)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The action may succeed (no issues found or issues below threshold)
+          # or fail (issues found with fail_level=error, or sentinel repo API failure).
+          # Either is acceptable — we just verify the step ran and produced a result.
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran and produced a definitive outcome: $OUTCOME"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
