@@ -1,0 +1,39 @@
+name: Test clean workflow passes
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a valid workflow file to lint
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.lint-tmp"
+          printf '%s\n' \
+            'name: Good' \
+            'on: push' \
+            'jobs:' \
+            '  build:' \
+            '    runs-on: ubuntu-latest' \
+            '    steps:' \
+            '      - run: echo hello' \
+            > "$GITHUB_WORKSPACE/.lint-tmp/good.yml"
+          cat "$GITHUB_WORKSPACE/.lint-tmp/good.yml"
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+          actionlint_flags: .lint-tmp/good.yml
+      - name: Assert action succeeded on clean workflow
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success for a clean workflow"
+            exit 1
+          fi
+          echo "PASS"

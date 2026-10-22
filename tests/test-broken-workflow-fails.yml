@@ -1,0 +1,38 @@
+name: Test broken workflow fails with fail_level error
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a broken workflow file to lint (missing runs-on)
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.lint-tmp"
+          printf '%s\n' \
+            'name: Broken' \
+            'on: push' \
+            'jobs:' \
+            '  build:' \
+            '    steps:' \
+            '      - run: echo hello' \
+            > "$GITHUB_WORKSPACE/.lint-tmp/broken.yml"
+          cat "$GITHUB_WORKSPACE/.lint-tmp/broken.yml"
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+          actionlint_flags: .lint-tmp/broken.yml
+      - name: Assert action failed on broken workflow
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected failure for a broken workflow with fail_level=error"
+            exit 1
+          fi
+          echo "PASS"

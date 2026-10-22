@@ -1,0 +1,9 @@
+name: Invalid fixture
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    unknown-key: bad
+    steps:
+      - run: echo "${{ undefined_context.foo }}"
