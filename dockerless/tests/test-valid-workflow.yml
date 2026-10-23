@@ -1,0 +1,36 @@
+name: Test valid workflow passes
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+          actionlint_flags: tests/fixtures/valid-workflow.yml
+      - name: Assert action succeeded on a valid workflow
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success for a valid workflow"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert tools installed
+        run: |
+          for t in actionlint reviewdog; do
+            if ! command -v "$t" >/dev/null 2>&1; then
+              echo "FAIL: $t not on PATH"
+              exit 1
+            fi
+            echo "found $t: $(command -v "$t")"
+          done
+          echo "PASS"

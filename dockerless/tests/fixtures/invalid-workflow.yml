@@ -1,0 +1,9 @@
+name: Invalid fixture workflow
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use undefined context
+        run: echo "${{ undefined_context.value }}"
