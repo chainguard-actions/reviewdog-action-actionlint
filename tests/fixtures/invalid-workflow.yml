@@ -1,0 +1,10 @@
+name: Invalid fixture workflow
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    steps:
+      - name: Use undefined context property
+        run: echo "${{ github.this_property_does_not_exist }}"
