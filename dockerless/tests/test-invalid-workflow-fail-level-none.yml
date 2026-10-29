@@ -1,0 +1,34 @@
+name: Test invalid workflow does not fail with fail_level none
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The action installs pyflakes 4.1.0 which requires Python >= 3.11;
+      # the runner image ships Python 3.10, so provide a newer interpreter.
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Show python version
+        run: |
+          command -v python3
+          python3 --version
+      - id: action
+        uses: .
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          actionlint_flags: tests/fixtures/workflows/invalid.yaml
+      - name: Assert action succeeded
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success with fail_level none"
+            exit 1
+          fi
+          echo "PASS"

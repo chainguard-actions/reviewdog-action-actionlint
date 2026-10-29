@@ -1,0 +1,8 @@
+name: Broken
+on:
+  push:
+jobs:
+  build:
+    steps:
+      - name: Say hello
+        run: echo "hello"
