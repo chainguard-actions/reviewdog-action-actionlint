@@ -1,0 +1,8 @@
+name: Bad fixture
+on:
+  push:
+jobs:
+  build:
+    steps:
+      - name: Say hello
+        run: echo "hello"
