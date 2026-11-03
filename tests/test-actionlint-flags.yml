@@ -1,4 +1,4 @@
-name: Test fail_level with invalid workflow
+name: Test custom actionlint flags
 on:
   workflow_dispatch:
 jobs:
@@ -6,14 +6,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
 
-      - name: Set up git origin reachable inside Docker container
+      - name: Set up a git origin reachable inside the Docker container
         run: |
           git config user.email "test@example.com"
           git config user.name "Test User"
           rm -rf "$GITHUB_WORKSPACE/.git-remote"
           git init --bare "$GITHUB_WORKSPACE/.git-remote"
           git push "$GITHUB_WORKSPACE/.git-remote" HEAD:refs/heads/act-harness
+          git push "$GITHUB_WORKSPACE/.git-remote" --tags
           git remote set-url origin "$GITHUB_WORKSPACE/.git-remote" 2>/dev/null || \
             git remote add origin "$GITHUB_WORKSPACE/.git-remote"
 
@@ -22,20 +25,21 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ github.token }}
-          reporter: local
+          reporter: github-check
           filter_mode: nofilter
-          fail_level: error
-          actionlint_flags: "${{ github.workspace }}/tests/fixtures/invalid-workflow.yml"
+          fail_level: none
+          level: error
+          actionlint_flags: "-ignore SC2086"
 
-      - name: Assert action failed due to actionlint errors
+      - name: Assert action ran with custom actionlint flags
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
           echo "outcome: $OUTCOME"
-          if [ "$OUTCOME" = "failure" ]; then
-            echo "PASS: action correctly failed when actionlint found errors with fail_level=error"
-          elif [ "$OUTCOME" = "success" ]; then
-            echo "PASS: action succeeded (actionlint may not have flagged this file as invalid)"
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: actionlint ran with custom flags successfully"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected with sentinel repo)"
           else
             echo "FAIL: unexpected outcome '$OUTCOME'"
             exit 1

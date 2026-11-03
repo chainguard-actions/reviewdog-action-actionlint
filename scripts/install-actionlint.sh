@@ -14,8 +14,13 @@ else
   INSTALL_DIR=/usr/local/bin/
 fi
 
-cd "$INSTALL_DIR"
 INSTALL_SCRIPT=$(mktemp)
-curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash -o "$INSTALL_SCRIPT"
+trap 'rm -f "$INSTALL_SCRIPT"' EXIT
+curl -sSfL -o "$INSTALL_SCRIPT" https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash
+if [ ! -s "$INSTALL_SCRIPT" ] || ! head -n 1 "$INSTALL_SCRIPT" | grep -q '^#!'; then
+  echo "Downloaded actionlint install script is empty or invalid" >&2
+  exit 1
+fi
+
+cd "$INSTALL_DIR"
 bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"
-rm -f "$INSTALL_SCRIPT"
