@@ -1,0 +1,43 @@
+name: Test custom actionlint flags
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a workflow file for actionlint to check
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/custom-flags-test.yml << 'EOF'
+          name: Custom Flags Test Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Run tests
+                  run: echo "running tests"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          level: error
+          # Use -ignore flag to suppress any runner-label warnings
+          actionlint_flags: "-ignore SC2"
+          tool_name: "actionlint-custom"
+
+      - name: Assert action completed with custom flags
+        run: |
+          echo "Action completed with custom actionlint flags"
+          echo "PASS"

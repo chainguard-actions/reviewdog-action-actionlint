@@ -14,7 +14,11 @@ else
   INSTALL_DIR=/usr/local/bin/
 fi
 
-INSTALL_SCRIPT=$(mktemp)
-curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh -o "$INSTALL_SCRIPT"
+INSTALL_SCRIPT="$(mktemp)"
+trap 'rm -f "$INSTALL_SCRIPT"' EXIT
+curl -fsSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh -o "$INSTALL_SCRIPT"
+if [ ! -s "$INSTALL_SCRIPT" ] || [ "$(head -c 2 "$INSTALL_SCRIPT")" != "#!" ]; then
+  echo "Downloaded reviewdog install script is empty or invalid" >&2
+  exit 1
+fi
 sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"
-rm -f "$INSTALL_SCRIPT"

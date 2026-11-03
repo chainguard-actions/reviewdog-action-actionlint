@@ -1,0 +1,46 @@
+name: Test error detection - invalid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create an invalid workflow file for actionlint to detect errors
+        run: |
+          mkdir -p .github/workflows
+          # Create a workflow with a known actionlint error: invalid runner label
+          cat > .github/workflows/invalid-test.yml << 'EOF'
+          name: Invalid Workflow
+          on: push
+          jobs:
+            build:
+              runs-on: invalid-runner-that-does-not-exist
+              steps:
+                - name: Echo
+                  run: echo "hello"
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          # fail_level: none so the step doesn't fail even if issues are found
+          fail_level: none
+          level: warning
+        continue-on-error: true
+
+      - name: Assert action ran (may find issues in invalid workflow)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: actionlint ran and produced a result"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

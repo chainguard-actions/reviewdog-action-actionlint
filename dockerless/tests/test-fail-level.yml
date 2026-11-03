@@ -1,0 +1,47 @@
+name: Test fail_level behavior
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a valid workflow file
+        run: |
+          mkdir -p .github/workflows
+          cat > .github/workflows/fail-level-test.yml << 'EOF'
+          name: Fail Level Test Workflow
+          on:
+            push:
+              branches:
+                - main
+          jobs:
+            build:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+                - name: Run step
+                  run: echo "hello"
+          EOF
+
+      - id: action-none
+        uses: .
+        with:
+          github_token: ${{ github.token }}
+          reporter: local
+          filter_mode: nofilter
+          # fail_level: none means always exit 0 even if issues found
+          fail_level: none
+          level: error
+
+      - name: Assert action with fail_level=none succeeded
+        env:
+          OUTCOME: ${{ steps.action-none.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success with fail_level=none but got '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action succeeded with fail_level=none"
