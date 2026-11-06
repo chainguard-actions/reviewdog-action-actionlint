@@ -15,11 +15,11 @@ else
 fi
 
 cd "$INSTALL_DIR"
-INSTALL_SCRIPT="$(mktemp)"
-trap 'rm -f "$INSTALL_SCRIPT"' EXIT
-curl -sSfL https://raw.githubusercontent.com/kjanat/actionlint/08bb2c4f0d039744455b87aef1c647fb8b66d37b/scripts/download-actionlint.bash -o "$INSTALL_SCRIPT"
-if [ ! -s "$INSTALL_SCRIPT" ]; then
-  echo "failed to download actionlint installer" >&2
+DOWNLOAD_SCRIPT="$(mktemp)"
+trap 'rm -f "$DOWNLOAD_SCRIPT"' EXIT
+curl -sSfL -o "$DOWNLOAD_SCRIPT" https://raw.githubusercontent.com/kjanat/actionlint/08bb2c4f0d039744455b87aef1c647fb8b66d37b/scripts/download-actionlint.bash
+if [ ! -s "$DOWNLOAD_SCRIPT" ]; then
+  echo "failed to download actionlint download script" >&2
   exit 1
 fi
-bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"
+bash "$DOWNLOAD_SCRIPT" "$ACTIONLINT_VERSION"

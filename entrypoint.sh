@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -eu
 
@@ -33,25 +33,11 @@ export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 actionlint_out="$(mktemp)"
 trap 'rm -f "${actionlint_out}"' EXIT
 
-# Re-split INPUT_ACTIONLINT_FLAGS following shell quoting rules so that
-# flag values containing spaces (e.g. -ignore="foo bar") survive intact.
-# Uses xargs (quote-aware, no evaluation) instead of eval.
-actionlint_args=()
-if [ -n "${INPUT_ACTIONLINT_FLAGS:-}" ]; then
-  printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs -r true   # fails on an unmatched quote
-  while IFS= read -r -d '' t; do actionlint_args+=("$t"); done \
-    < <(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs -r printf '%s\0')
-fi
-
-reviewdog_args=()
-if [ -n "${INPUT_REVIEWDOG_FLAGS:-}" ]; then
-  printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs -r true   # fails on an unmatched quote
-  while IFS= read -r -d '' t; do reviewdog_args+=("$t"); done \
-    < <(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs -r printf '%s\0')
-fi
-
+# Flag lists are expanded unquoted on purpose so the shell splits them into
+# separate arguments (word splitting only; nothing is evaluated).
+# shellcheck disable=SC2086
 set +e
-actionlint -oneline ${actionlint_args[@]+"${actionlint_args[@]}"} > "${actionlint_out}"
+actionlint -oneline ${INPUT_ACTIONLINT_FLAGS:-} > "${actionlint_out}"
 actionlint_exit=$?
 set -e
 
@@ -62,6 +48,7 @@ if [ "${actionlint_exit}" -ge 2 ]; then
   cat "${actionlint_out}"
   exit "${actionlint_exit}"
 fi
+
 
 while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
@@ -85,7 +72,7 @@ done < "${actionlint_out}" \
         -fail-level="${INPUT_FAIL_LEVEL}" \
         -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
         -level="${INPUT_LEVEL}" \
-        ${reviewdog_args[@]+"${reviewdog_args[@]}"}
+        ${INPUT_REVIEWDOG_FLAGS:-}
 exit_code=$?
 
 exit "${exit_code}"

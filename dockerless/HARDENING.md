@@ -16,7 +16,7 @@ Action **reviewdog--action-actionlint--dockerless/v1.81.0** was hardened automat
 
 ### script-injection (severity: high)
 
-Sub-rule (b): the 'Run' step expands an env var holding workflow context data without quotes. ACTION_PATH is set from ${{ github.action_path }} and is then used as `run: $ACTION_PATH/../entrypoint.sh`. Because it is unquoted, the shell splits the path on spaces and expands glob characters in it. Fix: `run: "$ACTION_PATH/../entrypoint.sh"`.
+Sub-rule (b) is violated: an env var holding untrusted data is expanded without quotes. In the 'Run' step, ACTION_PATH is set from ${{ github.action_path }} and then used bare: `run: $ACTION_PATH/../entrypoint.sh`. The shell splits that value on whitespace and expands glob characters in it. Fix: quote it, i.e. `run: "$ACTION_PATH/../entrypoint.sh"`.
 
 Locations:
 
@@ -30,5 +30,5 @@ Locations:
 
 **Notes:**
 
-Fixed the one script-injection finding in `action.yml`. The "Run" step called `$ACTION_PATH/../entrypoint.sh` without quotes. `ACTION_PATH` is set from `${{ github.action_path }}`, so the shell would split that path on spaces and expand any glob characters in it. The step now runs `"$ACTION_PATH/../entrypoint.sh"`, written as a block scalar so the quotes stay part of the shell command instead of being read as YAML quoting. This is the only change. The step uses bash, so the `$VAR` syntax is correct.
+Quoted the ACTION_PATH expansion in the 'Run' step: run: "$ACTION_PATH/../entrypoint.sh" (shell: bash).
 
