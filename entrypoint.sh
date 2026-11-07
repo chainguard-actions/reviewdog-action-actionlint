@@ -33,15 +33,23 @@ export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 actionlint_out="$(mktemp)"
 trap 'rm -f "${actionlint_out}"' EXIT
 
+# Split a flags string following shell quoting rules (without evaluating it)
+# into the global array SPLIT_ARGS, so that flag values containing spaces
+# (e.g. -ignore="foo bar") survive intact.
+split_flags() {
+  SPLIT_ARGS=()
+  if [ -n "$1" ]; then
+    printf '%s' "$1" | xargs -r true >/dev/null   # fails on an unmatched quote
+    while IFS= read -r -d '' t; do SPLIT_ARGS+=("$t"); done \
+      < <(printf '%s' "$1" | xargs -r sh -c 'printf "%s\0" "$@"' sh)
+  fi
+}
+
+split_flags "${INPUT_ACTIONLINT_FLAGS:-}"
+actionlint_args=(${SPLIT_ARGS[@]+"${SPLIT_ARGS[@]}"})
+
 set +e
-# Re-split INPUT_ACTIONLINT_FLAGS following shell quoting rules so that
-# flag values containing spaces (e.g. -ignore="foo bar") survive intact.
-actionlint_flags=()
-if [ -n "${INPUT_ACTIONLINT_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do actionlint_flags+=("$t"); done \
-    < <(printf '%s' "${INPUT_ACTIONLINT_FLAGS}" | xargs -r printf '%s\0')
-fi
-actionlint -oneline "${actionlint_flags[@]}" > "${actionlint_out}"
+actionlint -oneline ${actionlint_args[@]+"${actionlint_args[@]}"} > "${actionlint_out}"
 actionlint_exit=$?
 set -e
 
@@ -53,13 +61,10 @@ if [ "${actionlint_exit}" -ge 2 ]; then
   exit "${actionlint_exit}"
 fi
 
-# Re-split INPUT_REVIEWDOG_FLAGS following shell quoting rules so that flag
-# values containing spaces (e.g. -diff="git diff main") survive intact.
-reviewdog_flags=()
-if [ -n "${INPUT_REVIEWDOG_FLAGS}" ]; then
-  while IFS= read -r -d '' t; do reviewdog_flags+=("$t"); done \
-    < <(printf '%s' "${INPUT_REVIEWDOG_FLAGS}" | xargs -r printf '%s\0')
-fi
+# Split INPUT_REVIEWDOG_FLAGS following shell quoting rules (no evaluation) so
+# that flag values containing spaces (e.g. -diff="git diff main") survive intact.
+split_flags "${INPUT_REVIEWDOG_FLAGS:-}"
+reviewdog_args=(${SPLIT_ARGS[@]+"${SPLIT_ARGS[@]}"})
 
 while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
@@ -83,7 +88,7 @@ done < "${actionlint_out}" \
         -fail-level="${INPUT_FAIL_LEVEL}" \
         -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
         -level="${INPUT_LEVEL}" \
-        "${reviewdog_flags[@]}"
+        ${reviewdog_args[@]+"${reviewdog_args[@]}"}
 exit_code=$?
 
 exit "${exit_code}"

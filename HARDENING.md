@@ -10,65 +10,54 @@
 
 **Harden Agent Version:** `2`
 
-Action **reviewdog--action-actionlint/v1.80.2** was hardened automatically. 4 finding(s) were identified and resolved across 2 iteration(s).
+Action **reviewdog--action-actionlint/v1.80.2** was hardened automatically. 4 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
-### unsafe-shell (severity: high)
+### script-injection (severity: high)
 
-scripts/install-actionlint.sh pipes curl output directly to bash without first saving to a file: `curl -sSL https://raw.githubusercontent.com/kjanat/actionlint/.../download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. This allows a compromised or man-in-the-middle remote server to execute arbitrary code on the runner.
+Sub-rule (b): the 'Run' step in the dockerless composite action expands an env var without quotes. ACTION_PATH is set from ${{ github.action_path }} and used as `run: $ACTION_PATH/../entrypoint.sh`, so the shell splits and globs the value. Quote it: "$ACTION_PATH/../entrypoint.sh".
 
 Locations:
 
-- `scripts/install-actionlint.sh:19`
+- `dockerless/action.yml:85`
+
+### script-injection (severity: high)
+
+The entrypoint script passes user inputs to eval: `eval "set -- ${INPUT_ACTIONLINT_FLAGS}"` (line 39) and `eval "set -- ${INPUT_REVIEWDOG_FLAGS}"` (line 54). These values come from inputs.actionlint_flags and inputs.reviewdog_flags. Shell metacharacters in them, such as `$(...)`, `;` or backticks, run as commands. This affects the Docker action and the dockerless action.
+
+Locations:
+
+- `entrypoint.sh:39`
+- `entrypoint.sh:54`
 
 ### unsafe-shell (severity: high)
 
-scripts/install-reviewdog.sh pipes curl output directly to sh without first saving to a file: `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/.../install.sh | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. This allows a compromised or man-in-the-middle remote server to execute arbitrary code on the runner.
+A remote script is piped straight into a shell: `curl -sSL https://raw.githubusercontent.com/kjanat/actionlint/08bb2c4f.../scripts/download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. Download the script to a file first, check it, then run it.
+
+Locations:
+
+- `scripts/install-actionlint.sh:18`
+
+### unsafe-shell (severity: high)
+
+A remote script is piped straight into a shell: `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74.../install.sh | sh -s -- -b "$INSTALL_DIR" ...`. Download the script to a file first, check it, then run it.
 
 Locations:
 
 - `scripts/install-reviewdog.sh:17`
 
-### script-injection (severity: high)
-
-Rule (b) violation: entrypoint.sh uses `eval "set -- ${INPUT_ACTIONLINT_FLAGS}"` where INPUT_ACTIONLINT_FLAGS is set from the user-controlled input `inputs.actionlint_flags` (via the env block in dockerless/action.yml). The variable is expanded unquoted inside eval, allowing an attacker to inject arbitrary shell commands by supplying a crafted value for the actionlint_flags input (e.g. `; malicious_command #`).
-
-Locations:
-
-- `entrypoint.sh:35`
-- `dockerless/action.yml:80`
-
-### script-injection (severity: high)
-
-Rule (b) violation: entrypoint.sh uses `eval "set -- ${INPUT_REVIEWDOG_FLAGS}"` where INPUT_REVIEWDOG_FLAGS is set from the user-controlled input `inputs.reviewdog_flags` (via the env block in dockerless/action.yml). The variable is expanded unquoted inside eval, allowing an attacker to inject arbitrary shell commands by supplying a crafted value for the reviewdog_flags input.
-
-Locations:
-
-- `entrypoint.sh:47`
-- `dockerless/action.yml:79`
-
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** unsafe-shell, script-injection
+**Fixes applied:** script-injection, unsafe-shell
 
 **Notes:**
 
-Fixed 4 findings across 3 files:
-
-1. scripts/install-actionlint.sh: Replaced `curl | bash -s -- "$ACTIONLINT_VERSION"` with download-then-execute pattern: curl to temp file, then `bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"` (dropped '--' per instructions as it was the shell's option terminator in the pipe form).
-
-2. scripts/install-reviewdog.sh: Replaced `curl | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"` with download-then-execute pattern: curl to temp file, then `sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"` (dropped '--' per instructions).
-
-3. entrypoint.sh: Changed shebang from `#!/bin/sh` to `#!/bin/bash` (bash is installed in the Docker image via `apk add bash`). Replaced both `eval "set -- ${INPUT_ACTIONLINT_FLAGS}"` and `eval "set -- ${INPUT_REVIEWDOG_FLAGS}"` with safe xargs-based tokenization into bash arrays (`actionlint_flags` and `reviewdog_flags`), using the guarded xargs loop pattern with `read -d ''`. Updated the actionlint and reviewdog invocations to use `"${actionlint_flags[@]}"` and `"${reviewdog_flags[@]}"` respectively instead of `"$@"`.
-
-### Iteration 2
-
-**Fixes applied:** script-injection
-
-**Notes:**
-
-Fixed script-injection in hardened/action/dockerless/action.yml: changed `run: $ACTION_PATH/../entrypoint.sh` to `run: "$ACTION_PATH/../entrypoint.sh"` to properly quote the ACTION_PATH environment variable and prevent shell metacharacter interpretation.
+- dockerless/action.yml: the Run step now quotes the path: run: '"$ACTION_PATH/../entrypoint.sh"'.
+- entrypoint.sh: removed both `eval "set -- ${INPUT_*_FLAGS}"` lines. The flags are now split by a `split_flags` helper. It respects quotes the same way eval did (so `-ignore="foo bar"` stays one argument) but never runs anything in the value. It uses the quote-aware xargs split, with the guard for empty input, the `xargs -r true` check that fails on an unmatched quote, and the shell's built-in printf with the trailing `sh`. The results go into arrays, which are expanded in a form that is safe under `set -u` on bash 3.2. The reviewdog flags are still split after the actionlint exit-code check, as upstream did, and reviewdog still reads its input from the pipe. I changed the shebang to #!/bin/bash because the script now uses arrays and process substitution. The Dockerfile already installs bash (`apk add ... bash`), and the dockerless runners have bash.
+- scripts/install-actionlint.sh and scripts/install-reviewdog.sh: each installer is now downloaded to a mktemp file with `curl -sSfL -o`, checked to be non-empty, then run as `bash "$f" "$ACTIONLINT_VERSION"` / `sh "$f" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. I dropped the `-s --` from the old pipe form, so the arguments reach the installers unchanged.
+- action.yml (the Docker action) runs upstream's prebuilt image, so the entrypoint.sh changes only take effect in the dockerless action and in images built from the Dockerfile.
+- No tests were run.
 
