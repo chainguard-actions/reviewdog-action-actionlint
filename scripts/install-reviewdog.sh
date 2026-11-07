@@ -16,9 +16,5 @@ fi
 
 INSTALL_SCRIPT="$(mktemp)"
 trap 'rm -f "$INSTALL_SCRIPT"' EXIT
-curl -sSfL -o "$INSTALL_SCRIPT" https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh
-if [ ! -s "$INSTALL_SCRIPT" ]; then
-  echo "failed to download reviewdog install script" >&2
-  exit 1
-fi
+curl -sSfL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74df59de7ebfd9276afabd62ea2de4d7dd/install.sh -o "$INSTALL_SCRIPT"
 sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"

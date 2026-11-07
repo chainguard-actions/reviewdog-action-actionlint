@@ -31,13 +31,28 @@ echo "::endgroup::"
 export REVIEWDOG_GITHUB_API_TOKEN="${INPUT_GITHUB_TOKEN}"
 
 actionlint_out="$(mktemp)"
-trap 'rm -f "${actionlint_out}"' EXIT
+flags_tmp="$(mktemp)"
+trap 'rm -f "${actionlint_out}" "${flags_tmp}"' EXIT
 
-# Flag lists are expanded unquoted on purpose so the shell splits them into
-# separate arguments (word splitting only; nothing is evaluated).
-# shellcheck disable=SC2086
+# split_flags VALUE FILE: split VALUE following shell quoting rules (without
+# evaluating anything) and write one token per line to FILE.
+split_flags() {
+  : > "$2"
+  if [ -n "$1" ]; then
+    # fails on an unmatched quote
+    printf '%s' "$1" | xargs -r true >/dev/null
+    printf '%s' "$1" | xargs -r sh -c 'for a do printf "%s\n" "$a"; done' sh > "$2"
+  fi
+}
+
+# Re-split INPUT_ACTIONLINT_FLAGS following shell quoting rules so that
+# flag values containing spaces (e.g. -ignore="foo bar") survive intact.
+split_flags "${INPUT_ACTIONLINT_FLAGS:-}" "${flags_tmp}"
+set --
+while IFS= read -r t; do set -- "$@" "$t"; done < "${flags_tmp}"
+
 set +e
-actionlint -oneline ${INPUT_ACTIONLINT_FLAGS:-} > "${actionlint_out}"
+actionlint -oneline "$@" > "${actionlint_out}"
 actionlint_exit=$?
 set -e
 
@@ -49,6 +64,11 @@ if [ "${actionlint_exit}" -ge 2 ]; then
   exit "${actionlint_exit}"
 fi
 
+# Re-split INPUT_REVIEWDOG_FLAGS following shell quoting rules so that flag
+# values containing spaces (e.g. -diff="git diff main") survive intact.
+split_flags "${INPUT_REVIEWDOG_FLAGS:-}" "${flags_tmp}"
+set --
+while IFS= read -r t; do set -- "$@" "$t"; done < "${flags_tmp}"
 
 while read -r r; do
   shellcheck_output=" shellcheck reported issue in this script: "
@@ -72,7 +92,7 @@ done < "${actionlint_out}" \
         -fail-level="${INPUT_FAIL_LEVEL}" \
         -fail-on-error="${INPUT_FAIL_ON_ERROR}" \
         -level="${INPUT_LEVEL}" \
-        ${INPUT_REVIEWDOG_FLAGS:-}
+        "$@"
 exit_code=$?
 
 exit "${exit_code}"
