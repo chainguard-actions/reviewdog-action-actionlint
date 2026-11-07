@@ -1,0 +1,64 @@
+name: Test basic usage on a valid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The runner image ships Python 3.10, but the pinned pyflakes requires
+      # Python >= 3.11. Provide a Python >= 3.11 virtualenv first on PATH so the
+      # action's "install pyflakes" step can succeed.
+      - name: Provide Python >= 3.11 on PATH
+        run: |
+          set -u
+          SUDO=""
+          if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          VENV=/tmp/py311-venv
+          ok=0
+          if command -v python3.13 >/dev/null 2>&1 || command -v python3.12 >/dev/null 2>&1 || command -v python3.11 >/dev/null 2>&1; then
+            for p in python3.13 python3.12 python3.11; do
+              if command -v "$p" >/dev/null 2>&1 && "$p" -m venv "$VENV" 2>/dev/null; then ok=1; break; fi
+            done
+          fi
+          if [ "$ok" != "1" ]; then
+            if $SUDO apt-get update -y && \
+               DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y python3.11 python3.11-venv; then
+              rm -rf "$VENV"
+              python3.11 -m venv "$VENV" && ok=1
+            fi
+          fi
+          if [ "$ok" != "1" ]; then
+            echo "apt route failed; falling back to uv-managed Python"
+            python3 -m pip install --user uv
+            export PATH="$HOME/.local/bin:$PATH"
+            rm -rf "$VENV"
+            uv venv --seed --python 3.12 "$VENV" && ok=1
+          fi
+          if [ "$ok" != "1" ]; then
+            echo "FAIL: could not provision Python >= 3.11"
+            exit 1
+          fi
+          "$VENV/bin/python" -m pip --version
+          echo "$VENV/bin" >> "$GITHUB_PATH"
+      - name: Show python version
+        run: |
+          python3 --version
+          python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'
+      - id: action
+        uses: .
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: error
+          actionlint_flags: tests/fixtures/valid-workflow.yml
+      - name: Assert action succeeded
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success"
+            exit 1
+          fi
+          echo "PASS"
