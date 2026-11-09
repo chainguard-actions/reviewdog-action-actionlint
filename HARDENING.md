@@ -10,13 +10,21 @@
 
 **Harden Agent Version:** `2`
 
-Action **reviewdog--action-actionlint/v1.75.0** was hardened automatically. 4 finding(s) were identified and resolved across 1 iteration(s).
+Action **reviewdog--action-actionlint/v1.75.0** was hardened automatically. 3 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
+### script-injection (severity: high)
+
+Rule (b): in the dockerless composite action's 'Run' step, the env var ACTION_PATH (set from ${{ github.action_path }}) is expanded without quotes as the command path: `run: $ACTION_PATH/../entrypoint.sh`. Quote it: `run: "$ACTION_PATH/../entrypoint.sh"`.
+
+Locations:
+
+- `dockerless/action.yml:85`
+
 ### unsafe-shell (severity: high)
 
-scripts/install-actionlint.sh pipes remote content directly to bash: `curl -sSL https://raw.githubusercontent.com/kjanat/actionlint/.../download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. The script is fetched and executed in one step without any integrity verification, allowing a compromised upstream URL to execute arbitrary code on the runner.
+Remote content is piped straight into a shell: `curl -sSL https://raw.githubusercontent.com/kjanat/actionlint/08bb2c4f.../scripts/download-actionlint.bash | bash -s -- "$ACTIONLINT_VERSION"`. Download the script to a file first, check it, then run it.
 
 Locations:
 
@@ -24,40 +32,25 @@ Locations:
 
 ### unsafe-shell (severity: high)
 
-scripts/install-reviewdog.sh pipes remote content directly to sh: `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/.../install.sh | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. The script is fetched and executed in one step without any integrity verification, allowing a compromised upstream URL to execute arbitrary code on the runner.
+Remote content is piped straight into a shell: `curl -sSL https://raw.githubusercontent.com/reviewdog/reviewdog/df70ed74.../install.sh | sh -s -- -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`. Download the script to a file first, check it, then run it.
 
 Locations:
 
 - `scripts/install-reviewdog.sh:17`
 
-### script-injection (severity: high)
-
-Rule (b) violation: entrypoint.sh expands `${INPUT_ACTIONLINT_FLAGS}` (line 32) and `${INPUT_REVIEWDOG_FLAGS}` (line 44) without double-quoting. Both variables are set from caller-controlled inputs (`inputs.actionlint_flags` and `inputs.reviewdog_flags` in dockerless/action.yml). An attacker can inject shell metacharacters (`;`, `|`, `$(...)`, etc.) through these inputs to achieve command injection. The `# shellcheck disable=SC2086` comment confirms the intentional unquoting, but this does not mitigate the security risk.
-
-Locations:
-
-- `entrypoint.sh:32`
-- `entrypoint.sh:44`
-
-### script-injection (severity: high)
-
-Rule (b) violation: In dockerless/action.yml, the 'Run' step uses `run: $ACTION_PATH/../entrypoint.sh` where `$ACTION_PATH` is unquoted and is set from `${{ github.action_path }}` (a github.* context value) in the env block. Per the security rules, github.* values are untrusted and shell variable expansions derived from them must be double-quoted to prevent word-splitting and glob expansion.
-
-Locations:
-
-- `dockerless/action.yml:84`
-
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** unsafe-shell, script-injection
+**Fixes applied:** script-injection, unsafe-shell
 
 **Notes:**
 
-Fixed 4 findings across 4 files:
-1. scripts/install-actionlint.sh: Replaced `curl ... | bash -s -- "$VERSION"` with download-to-tempfile then `bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"` (dropped '--' per instructions — it was the shell's option terminator, not the script's).
-2. scripts/install-reviewdog.sh: Replaced `curl ... | sh -s -- -b "$DIR" "v$VER"` with download-to-tempfile then `sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"` (dropped '--' per instructions).
-3. entrypoint.sh: Changed shebang to #!/bin/bash (bash is installed in the Alpine Docker image via `apk add bash`). Replaced unquoted `${INPUT_ACTIONLINT_FLAGS}` and `${INPUT_REVIEWDOG_FLAGS}` with xargs-tokenized bash arrays using the guarded while/IFS/read -d '' pattern. reviewdog reads from stdin (the actionlint pipe) so flags are tokenized separately and expanded as `"${reviewdog_flags[@]}"`.
-4. dockerless/action.yml: Quoted `$ACTION_PATH/../entrypoint.sh` as `"$ACTION_PATH/../entrypoint.sh"` to prevent word-splitting/glob expansion from the github.action_path context value.
+I fixed all three findings, but I haven't run anything to test the changes.
+
+- **`dockerless/action.yml` (script-injection):** the Run step now quotes the path it runs: `"$ACTION_PATH/../entrypoint.sh"`.
+- **`scripts/install-actionlint.sh` (unsafe-shell):** the installer is downloaded to a temp file first. The script stops if the download fails or the file is empty, and deletes the file when it exits. It then runs `bash "$INSTALL_SCRIPT" "$ACTIONLINT_VERSION"`. I dropped the `-s --` that only made sense when the script came in through the pipe. The script still changes into the install directory before running the installer, because the installer saves actionlint into the current directory.
+- **`scripts/install-reviewdog.sh` (unsafe-shell):** same download-then-run pattern, followed by `sh "$INSTALL_SCRIPT" -b "$INSTALL_DIR" "v$REVIEWDOG_VERSION"`, again without the `-s --`.
+
+One behaviour change: both downloads now use `curl -f`, so a failed download (such as a 404) stops the step with an error. Before, curl would hand the error page to the shell instead.
 
