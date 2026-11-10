@@ -1,0 +1,41 @@
+name: Test basic usage on a valid workflow
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The action pins a pyflakes release that requires Python >= 3.11, but the
+      # act runner image ships Python 3.10. Provide a Python 3.12 venv (with pip)
+      # first on PATH so the action's pyflakes installer can succeed.
+      - name: Provide Python >= 3.11 on PATH
+        run: |
+          set -e
+          python3 --version || true
+          python3 -m pip install --quiet uv
+          python3 -m uv venv --seed --python 3.12 /tmp/py312
+          /tmp/py312/bin/python3 --version
+          /tmp/py312/bin/python3 -m pip --version
+          echo "/tmp/py312/bin" >> "$GITHUB_PATH"
+      - name: Verify Python version
+        run: |
+          which python3
+          python3 -c 'import sys; assert sys.version_info >= (3, 11), sys.version; print(sys.version)'
+      - id: action
+        uses: .
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: any
+          actionlint_flags: tests/fixtures/workflows/valid.yml
+      - name: Assert action succeeded
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success"
+            exit 1
+          fi
+          echo "PASS"

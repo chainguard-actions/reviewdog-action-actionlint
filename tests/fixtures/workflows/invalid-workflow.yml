@@ -1,0 +1,8 @@
+name: Invalid fixture workflow
+on:
+  push:
+jobs:
+  build:
+    steps:
+      - name: Say hello
+        run: echo "hello"

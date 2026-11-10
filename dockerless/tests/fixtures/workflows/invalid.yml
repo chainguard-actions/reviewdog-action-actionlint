@@ -1,0 +1,10 @@
+name: Invalid fixture
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    unknown_key_for_actionlint: true
+    steps:
+      - name: Bad expression
+        run: echo "${{ github.this_context_does_not_exist_anywhere }}"

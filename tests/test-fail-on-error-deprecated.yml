@@ -1,0 +1,31 @@
+name: Test deprecated fail_on_error is accepted and does not override fail_level
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # The deprecated fail_on_error input is still accepted (reviewdog prints a
+      # deprecation warning), but with fail_level=none the run must still exit 0
+      # even though the fixture contains lint errors.
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_on_error: "true"
+          fail_level: none
+          tool_name: custom-actionlint
+          actionlint_flags: tests/fixtures/workflows/invalid-workflow.yml
+      - name: Assert action ran successfully with deprecated input
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: expected success (fail_level=none takes precedence over deprecated fail_on_error)"
+            exit 1
+          fi
+          echo "PASS"
