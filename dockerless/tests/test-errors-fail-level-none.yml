@@ -1,0 +1,48 @@
+name: Test errors with fail_level none do not fail
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Provide Python >= 3.11 (pinned pyflakes requires it)
+        run: |
+          set -eu
+          python3 -m pip install --user --quiet uv
+          python3 -m uv venv --seed --python 3.12 "$RUNNER_TEMP/py312"
+          "$RUNNER_TEMP/py312/bin/python" --version
+          echo "$RUNNER_TEMP/py312/bin" >> "$GITHUB_PATH"
+      - name: Verify Python version on PATH
+        run: |
+          python3 --version
+          python3 -c 'import sys; assert sys.version_info >= (3, 11), sys.version'
+      - id: action
+        uses: .
+        with:
+          reporter: local
+          filter_mode: nofilter
+          fail_level: none
+          level: warning
+          actionlint_flags: ${{ github.workspace }}/tests/fixtures/bad-workflow.yml
+      - name: Assert action succeeded despite lint errors
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "success" ]; then
+            echo "FAIL: fail_level=none should never fail"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Sanity check actionlint finds errors in the fixture
+        run: |
+          if ! command -v actionlint >/dev/null 2>&1; then
+            echo "actionlint not on PATH for later steps; skipping sanity check"
+            exit 0
+          fi
+          if actionlint -oneline "$GITHUB_WORKSPACE/tests/fixtures/bad-workflow.yml"; then
+            echo "FAIL: expected actionlint to report errors in bad fixture"
+            exit 1
+          fi
+          echo "PASS"

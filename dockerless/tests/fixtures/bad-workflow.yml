@@ -1,0 +1,11 @@
+name: Bad workflow
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Undefined context property
+        run: echo "${{ github.this_property_does_not_exist }}"
+      - name: Unknown step key
+        runz: echo "typo"

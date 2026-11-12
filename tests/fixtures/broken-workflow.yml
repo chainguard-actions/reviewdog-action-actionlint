@@ -1,0 +1,8 @@
+name: Broken fixture
+on:
+  push:
+jobs:
+  hello:
+    steps:
+      - name: Use undefined context
+        run: echo "${{ undefinedcontext.value }}"
